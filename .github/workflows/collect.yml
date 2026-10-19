@@ -1,0 +1,36 @@
+name: Collect AI Pipe usage
+
+on:
+  schedule:
+    - cron: "20 */6 * * *"   # every 6 hours at :20 past (UTC)
+  workflow_dispatch:          # lets you run it manually with a button
+
+permissions:
+  contents: write             # needed so the workflow can commit
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Save raw snapshot
+        run: |
+          mkdir -p snapshots
+          curl -s https://stats.aipipe.org/usage.json -o snapshots/usage_$(date -u +%Y%m%dT%H%M).json
+
+      - run: python collect.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Update usage data $(date -u +%FT%TZ)"
+          git push
